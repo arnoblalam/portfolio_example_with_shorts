@@ -108,8 +108,14 @@ shinyServer(function(input, output) {
               ineqUB = ineqUB,
               LB = LB,
               control = list(trace = FALSE))
+
         
         p1 <- as.vector(matrix(solution$pars, nrow = i, ncol = m) %*% z)
+        if (solution$convergence != 0) {
+            p1 <- p1*0
+            showNotification("Solution for short sales model is infeasible.  Please relax one or more of the constraints.", 
+                             duration = 0)
+        }
         
         # Now solve the simple portfolio case
         eqfun <- function(p) {
@@ -130,7 +136,15 @@ shinyServer(function(input, output) {
                                warning(e)
                                return(rep(0,i))
                            })
+
         p2 <- solution2$pars
+        
+        if (solution2$convergence != 0) {
+            p2 <- p2*0
+            showNotification("Solution for no-short sales model is infeasible.  Please relax one or more of the constraints.", 
+                             duration = 0)
+        }
+        
         cbind(p1, p2)
     })
     
@@ -143,13 +157,20 @@ shinyServer(function(input, output) {
     })
     
     output$allocations <- renderHighchart({
-        ret <- etf_returns()/100 + 1
+        # ret <- etf_returns()/100 + 1
+        # yearly_weighted_1 <- apply(ret,1, weighted.mean, solution()[,1])
+        # yearly_weighted_2 <- apply(ret,1, weighted.mean, solution()[,2])
+        # yearly_unweighted <- apply(ret,1, mean)
+        # mu_1 <- round((prod(yearly_weighted_1) - 1) * 100, 1)
+        # mu_2 <- round((prod(yearly_weighted_2) - 1) * 100, 1)
+        # mu_3 <- round((prod(yearly_unweighted) - 1) * 100, 1)
+        ret <- etf_returns()
         yearly_weighted_1 <- apply(ret,1, weighted.mean, solution()[,1])
         yearly_weighted_2 <- apply(ret,1, weighted.mean, solution()[,2])
         yearly_unweighted <- apply(ret,1, mean)
-        mu_1 <- round((prod(yearly_weighted_1) - 1) * 100, 1)
-        mu_2 <- round((prod(yearly_weighted_2) - 1) * 100, 1)
-        mu_3 <- round((prod(yearly_unweighted) - 1) * 100, 1)
+        mu_1 <- round(mean(yearly_weighted_1), 1)
+        mu_2 <- round(mean(yearly_weighted_2), 1)
+        mu_3 <- round(mean(yearly_unweighted), 1)
         
         ret_1 <- apply(etf_returns(),1, weighted.mean, solution()[,1])
         ret_2 <- apply(etf_returns(),1, weighted.mean, solution()[,2])
@@ -161,7 +182,7 @@ shinyServer(function(input, output) {
         s2 <- round((sd(ret_2)),2)
         s3 <- round((sd(ret_3)),2)
         
-        txt <- paste0("Total Return over the period analyzed<br/>",
+        txt <- paste0("Average yearly returns and standard deviation of returns over the period analyzed<br/>",
                       "Equally weighted portfolio Return: ", mu_3, "%,", 
                       " Portfolio with short sales Return: ", mu_1, "%,",
                       " Portfolio without short sales Return : ", mu_2, "%,",
